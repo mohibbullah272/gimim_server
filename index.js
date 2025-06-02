@@ -63,7 +63,7 @@ Company Information:
     });
 
   } catch (error) {
-    console.error('Gemini AI Error:', error);
+    // console.error('Gemini AI Error:', error);
     
     // Handle specific error types
     if (error.message.includes('API_KEY_INVALID')) {
@@ -122,7 +122,7 @@ const userCollection = client.db('GimimDB').collection('users')
 // contact api 
 app.post('/contact',async(req,res)=>{
   const { name, email, message ,subject} = req.body;
-console.log(name,email,message,subject)
+// console.log(name,email,message,subject)
   const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -150,32 +150,99 @@ console.log(name,email,message,subject)
 // product related api 
 app.post('/products',async(req,res)=>{
     const product = req.body
-    console.log(product)
     const result = await ProductCollection.insertOne(product)
     res.send(result)
 })
 app.get('/feature/product',async(req,res)=>{
-    const result = await ProductCollection.find().sort({price:1}).limit(6).toArray()
+    const result = await ProductCollection.find().limit(6).toArray()
     res.send(result)
 })
 app.get('/products',async(req,res)=>{
     const result =await ProductCollection.find().toArray()
     res.send(result)
 })
+app.delete('/products/:id', async (req, res) => {
+  try {
+      const { id } = req.params;
+      
+      // Validate ObjectId
+      if (!ObjectId.isValid(id)) {
+          return res.status(400).json({ error: 'Invalid product ID' });
+      }
+      
+      const db = client.db('GimimDB');
+      const collection = db.collection('products');
+      
+
+      const existingProduct = await collection.findOne({ _id: new ObjectId(id) });
+      if (!existingProduct) {
+          return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      const result = await collection.deleteOne({ _id: new ObjectId(id) });
+      
+      if (result.deletedCount === 0) {
+          return res.status(404).json({ error: 'Product not found' });
+      }
+      
+      res.status(200).json({
+          message: 'Product deleted successfully',
+          deletedProduct: existingProduct
+      });
+  } catch (error) {
+      // console.error('Error deleting product:', error);
+      res.status(500).json({ 
+          error: 'Failed to delete product',
+          message: error.message 
+      });
+  }
+});
 app.get('/product/:id',async(req,res)=>{
     const id = req.params.id
-    console.log(id)
+    // console.log(id)
     const query = {_id: new ObjectId(id)}
     const result = await ProductCollection.findOne(query)
     res.send(result)
 })
 // user related api 
+app.get('/checkAdmin', async (req, res) => {
+  const email = req.query.email;
+
+  // 🛡️ Basic validation
+  if (!email) {
+    return res.status(400).send({ error: true, message: 'Email is required' });
+  }
+
+  try {
+    const user = await userCollection.findOne({ email });
+
+ 
+    if (!user) {
+      return res.send({ isAdmin: false, message: 'User not found' });
+    }
+
+
+    const isAdmin = user?.isAdmin === true;
+
+    res.send({ isAdmin });
+  } catch (error) {
+    // console.error('Check Admin Error:', error);
+    res.status(500).send({ error: true, message: 'Internal server error' });
+  }
+});
+
 app.get('/users',async(req,res)=>{
     const result = await userCollection.find().toArray()
     res.send(result)
 })
-app.post('/user',async(req,res)=>{
-    const userInfo = req.body
+app.post('/users',async(req,res)=>{
+    const {userInfo} = req.body
+    const email = userInfo.email
+    // console.log(email)
+    const findUser = await userCollection.findOne({email})
+    if(findUser){
+    return  res.send({message:'user already exist'})
+    }  
     const result = await userCollection.insertOne(userInfo)
     res.send(result)
 })
